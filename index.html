@@ -19,6 +19,7 @@
     --gold-soft: #d8c7a1;
     --seed: #4f6b45;
     --weapon: #8a3c2e;
+    --life: #6b5490;
     --card-shadow: 2px 3px 0 rgba(35,43,36,0.08);
   }
 
@@ -148,6 +149,7 @@
   }
   .pill.active-seed{ background: var(--seed); color:#fff; border-color:var(--seed); }
   .pill.active-weapon{ background: var(--weapon); color:#fff; border-color:var(--weapon); }
+  .pill.active-life{ background: var(--life); color:#fff; border-color:var(--life); }
 
   .export-btn{
     margin-top: 26px;
@@ -332,6 +334,7 @@
   }
   .tag-toggle button.on-seed{ background: var(--seed); color:#fff; border-color: var(--seed); }
   .tag-toggle button.on-weapon{ background: var(--weapon); color:#fff; border-color: var(--weapon); }
+  .tag-toggle button.on-life{ background: var(--life); color:#fff; border-color: var(--life); }
   .save-row{ display:flex; gap:10px; margin-top: 4px; }
   .save-row button{
     padding: 10px 20px;
@@ -393,6 +396,7 @@
   }
   .badge.seed{ background: var(--seed); }
   .badge.weapon{ background: var(--weapon); }
+  .badge.life{ background: var(--life); }
   .card-actions{
     position:absolute;
     top: 10px;
@@ -446,6 +450,7 @@
     <div class="tag-filter">
       <button class="pill" id="filterSeed">🌱 씨앗</button>
       <button class="pill" id="filterWeapon">⚔️ 무기</button>
+      <button class="pill" id="filterLife">⭐ 인생</button>
       <button class="pill" id="filterClear">전체</button>
     </div>
 
@@ -503,16 +508,28 @@ if (typeof window.storage === 'undefined') {
 }
 
 const DEFAULT_CATEGORIES = [
-  "문학의 뿌리",
-  "사고의 틀 (인문)",
-  "세상 읽기",
-  "일과 전략",
-  "과학과 미래",
-  "예술과 감각",
-  "믿음과 존재",
-  "삶의 기술",
+  "문학의 뿌리 (소설, 시/에세이)",
+  "사고의 틀 (인문, 철학)",
+  "세상 읽기 (정치/사회, 역사/문화)",
+  "일과 전략 (경제/경영, 자기계발)",
+  "과학과 미래 (과학, 기술/공학, 컴퓨터/IT)",
+  "예술과 감각 (예술/대중문화)",
+  "믿음과 존재 (종교)",
+  "삶의 기술 (건강, 요리, 가정/육아, 취미/실용/스포츠, 여행)",
   "미분류"
 ];
+
+// 예전 버전에서 이미 저장해둔 카테고리명 → 새 표기(교보문고 대응 분류 포함)로 자동 이전
+const CATEGORY_RENAME_MAP = {
+  "문학의 뿌리": "문학의 뿌리 (소설, 시/에세이)",
+  "사고의 틀 (인문)": "사고의 틀 (인문, 철학)",
+  "세상 읽기": "세상 읽기 (정치/사회, 역사/문화)",
+  "일과 전략": "일과 전략 (경제/경영, 자기계발)",
+  "과학과 미래": "과학과 미래 (과학, 기술/공학, 컴퓨터/IT)",
+  "예술과 감각": "예술과 감각 (예술/대중문화)",
+  "믿음과 존재": "믿음과 존재 (종교)",
+  "삶의 기술": "삶의 기술 (건강, 요리, 가정/육아, 취미/실용/스포츠, 여행)"
+};
 
 let categories = [...DEFAULT_CATEGORIES];
 let books = [];
@@ -536,6 +553,15 @@ async function loadCategories(){
   }catch(e){
     categories = [...DEFAULT_CATEGORIES];
   }
+  let migrated = false;
+  categories = categories.map(c=>{
+    if(CATEGORY_RENAME_MAP[c] && CATEGORY_RENAME_MAP[c] !== c){
+      migrated = true;
+      return CATEGORY_RENAME_MAP[c];
+    }
+    return c;
+  });
+  if(migrated) await saveCategories();
 }
 
 async function saveCategories(){
@@ -553,6 +579,13 @@ async function loadBooks(){
         const r = await window.storage.get(STORAGE_KEY_PREFIX + id);
         if(r) loaded.push(JSON.parse(r.value));
       }catch(e){ /* skip missing */ }
+    }
+    // 이전 카테고리명으로 저장된 책이 있으면 새 표기로 함께 갱신
+    for(const b of loaded){
+      if(CATEGORY_RENAME_MAP[b.category] && CATEGORY_RENAME_MAP[b.category] !== b.category){
+        b.category = CATEGORY_RENAME_MAP[b.category];
+        await window.storage.set(STORAGE_KEY_PREFIX + b.id, JSON.stringify(b));
+      }
     }
     books = loaded.sort((a,b)=> b.createdAt - a.createdAt);
   }catch(e){
@@ -663,10 +696,12 @@ function renderCategoryManage(){
 function renderCountStrip(){
   const seedCount = books.filter(b=>b.tags.includes('seed')).length;
   const weaponCount = books.filter(b=>b.tags.includes('weapon')).length;
+  const lifeCount = books.filter(b=>b.tags.includes('life')).length;
   document.getElementById('countStrip').innerHTML = `
     <div class="item"><b>${books.length}</b>전체 등록</div>
     <div class="item"><b>${seedCount}</b>🌱 씨앗도서</div>
     <div class="item"><b>${weaponCount}</b>⚔️ 무기도서</div>
+    <div class="item"><b>${lifeCount}</b>⭐ 인생도서</div>
     <div class="item"><b>${Math.max(0,100-books.length)}</b>100권까지 남음</div>
   `;
 }
@@ -703,6 +738,7 @@ function renderList(){
       <div class="tags">
         ${b.tags.includes('seed') ? '<span class="badge seed">🌱 씨앗</span>' : ''}
         ${b.tags.includes('weapon') ? '<span class="badge weapon">⚔️ 무기</span>' : ''}
+        ${b.tags.includes('life') ? '<span class="badge life">⭐ 인생</span>' : ''}
       </div>
       <div class="cat-line">${escapeHtml(b.category)}</div>
       ${b.note ? `<div style="font-size:12.5px;color:var(--ink-soft);">${escapeHtml(b.note)}</div>` : ''}
@@ -849,6 +885,7 @@ function showEntryForm(pick){
           <div class="tag-toggle">
             <button type="button" id="toggleSeed">🌱 씨앗도서</button>
             <button type="button" id="toggleWeapon">⚔️ 무기도서</button>
+            <button type="button" id="toggleLife">⭐ 인생도서</button>
           </div>
         </div>
         <div>
@@ -867,8 +904,10 @@ function showEntryForm(pick){
   let tags = [...initialTags];
   const seedBtn = document.getElementById('toggleSeed');
   const weaponBtn = document.getElementById('toggleWeapon');
+  const lifeBtn = document.getElementById('toggleLife');
   if(tags.includes('seed')) seedBtn.classList.add('on-seed');
   if(tags.includes('weapon')) weaponBtn.classList.add('on-weapon');
+  if(tags.includes('life')) lifeBtn.classList.add('on-life');
   seedBtn.onclick = ()=>{
     tags = tags.includes('seed') ? tags.filter(t=>t!=='seed') : [...tags, 'seed'];
     seedBtn.classList.toggle('on-seed');
@@ -876,6 +915,10 @@ function showEntryForm(pick){
   weaponBtn.onclick = ()=>{
     tags = tags.includes('weapon') ? tags.filter(t=>t!=='weapon') : [...tags, 'weapon'];
     weaponBtn.classList.toggle('on-weapon');
+  };
+  lifeBtn.onclick = ()=>{
+    tags = tags.includes('life') ? tags.filter(t=>t!=='life') : [...tags, 'life'];
+    lifeBtn.classList.toggle('on-life');
   };
 
   // 제목을 직접 고치면 교보 링크도 함께 갱신
@@ -950,6 +993,11 @@ document.getElementById('filterWeapon').onclick = ()=>{
   updateFilterPills();
   render();
 };
+document.getElementById('filterLife').onclick = ()=>{
+  activeTagFilter = activeTagFilter==='life' ? null : 'life';
+  updateFilterPills();
+  render();
+};
 document.getElementById('filterClear').onclick = ()=>{
   activeTagFilter = null;
   updateFilterPills();
@@ -958,14 +1006,15 @@ document.getElementById('filterClear').onclick = ()=>{
 function updateFilterPills(){
   document.getElementById('filterSeed').className = 'pill' + (activeTagFilter==='seed' ? ' active-seed':'');
   document.getElementById('filterWeapon').className = 'pill' + (activeTagFilter==='weapon' ? ' active-weapon':'');
+  document.getElementById('filterLife').className = 'pill' + (activeTagFilter==='life' ? ' active-life':'');
 }
 
 // ---------- Export ----------
 document.getElementById('exportBtn').onclick = ()=>{
-  const header = ['제목','저자','출판사','분류','씨앗','무기','메모'];
+  const header = ['제목','저자','출판사','분류','씨앗','무기','인생','메모'];
   const rows = books.map(b=>[
     b.title, b.author, b.publisher, b.category,
-    b.tags.includes('seed') ? 'O':'', b.tags.includes('weapon') ? 'O':'',
+    b.tags.includes('seed') ? 'O':'', b.tags.includes('weapon') ? 'O':'', b.tags.includes('life') ? 'O':'',
     (b.note||'').replace(/\n/g,' ')
   ]);
   const csv = [header, ...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
