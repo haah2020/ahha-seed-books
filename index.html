@@ -756,7 +756,7 @@ async function doSearch(){
   searchStatus.innerHTML = `<div class="loading-dot">검색 중...</div>`;
 
   try{
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent('intitle:' + q)}&maxResults=8`);
+    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent('intitle:' + q)}&maxResults=8&key=AIzaSyAukejXbh7C1DyOPPWewGByep5zH3JP6kI`);
     const data = await res.json();
     searchStatus.innerHTML = '';
     const items = (data.items || []).filter(it => it.volumeInfo && it.volumeInfo.title);
